@@ -212,7 +212,11 @@ startInstall()
         ######################################        
         
         if [[ "$OS" == "2" || "$OS" == "3" || "$OS" == "4" ]]; then
-            sudo apt install docker-compose -y >> ~/docker-script-install.log 2>&1
+            VERSION=$(curl --silent https://api.github.com/repos/docker/compose/releases/latest | grep -Po '"tag_name": "\K.*\d')
+            DESTINATION=/usr/bin/docker-compose
+            curl -L https://github.com/docker/compose/releases/download/${VERSION}/docker-compose-$(uname -s)-$(uname -m) -o $DESTINATION >> ~/docker-script-install.log 2>&1
+            sleep 2
+            chmod 755 $DESTINATION
         fi
 
         ######################################

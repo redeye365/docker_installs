@@ -220,9 +220,13 @@ startInstall()
         ######################################
 
         if [[ "$OS" == "1" ]]; then
-            sudo curl -L "https://github.com/docker/compose/releases/download/1.23.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose >> ~/docker-script-install.log 2>&1
+             sudo curl -L "https://github.com/docker/compose/releases/download/v2.12.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose >> ~/docker-script-install.log 2>&1
+            # Not sure if docker-compose is needed in /usr/local/bin also, so copied instead of move, it somehow command calls for docker-compose under /user/bin
+            sudo cp /usr/local/bin/docker-compose /usr/bin/docker-compose >> ~/docker-script-install.log 2>&1
 
+            sudo chmod +x /usr/bin/docker-compose >> ~/docker-script-install.log 2>&1
             sudo chmod +x /usr/local/bin/docker-compose >> ~/docker-script-install.log 2>&1
+
         fi
 
         ######################################

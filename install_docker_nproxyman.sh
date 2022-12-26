@@ -212,11 +212,11 @@ startInstall()
         ######################################        
         
         if [[ "$OS" == "2" || "$OS" == "3" || "$OS" == "4" ]]; then
+            DESTINATION=/usr/local/bin/docker-compose
             VERSION=$(curl --silent https://api.github.com/repos/docker/compose/releases/latest | grep -Po '"tag_name": "\K.*\d')
-            DESTINATION=/usr/bin/docker-compose
-            curl -L https://github.com/docker/compose/releases/download/${VERSION}/docker-compose-$(uname -s)-$(uname -m) -o $DESTINATION >> ~/docker-script-install.log 2>&1
+            sudo curl -SL https://github.com/docker/compose/releases/download/$VERSION/docker-compose-linux-x86_64 -o /usr/     local/bin/docker-compose
             sleep 2
-            chmod 755 $DESTINATION
+            sudo chmod 755 $DESTINATION
         fi
 
         ######################################

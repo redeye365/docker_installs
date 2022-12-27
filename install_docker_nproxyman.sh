@@ -89,20 +89,22 @@ startInstall()
         sleep 2s
 
         sudo apt install curl wget git -y >> ~/docker-script-install.log 2>&1
+        
+        if [[ "$ISACT" != "active" ]]; then
+            echo "    3. Installing Docker-CE (Community Edition)..."
+            sleep 2s
 
-        echo "    3. Installing Docker-CE (Community Edition)..."
-        sleep 2s
+        
+            curl -fsSL https://get.docker.com | sh >> ~/docker-script-install.log 2>&1
+            echo "      - docker-ce version is now:"
+            DOCKERV=$(docker -v)
+            echo "          "${DOCKERV}
+            sleep 3s
 
-        curl -fsSL https://get.docker.com | sh >> ~/docker-script-install.log 2>&1
-
-        echo "      - docker-ce version is now:"
-        DOCKERV=$(docker -v)
-        echo "          "${DOCKERV}
-        sleep 3s
-
-        if [[ "$OS" == 2 ]]; then
-            echo "    5. Starting Docker Service"
-            sudo systemctl docker start >> ~/docker-script-install.log 2>&1
+            if [[ "$OS" == 2 ]]; then
+                echo "    5. Starting Docker Service"
+                sudo systemctl docker start >> ~/docker-script-install.log 2>&1
+            fi
         fi
 
     fi
@@ -119,27 +121,29 @@ startInstall()
             echo "    2. Installing Prerequisite Packages..."
             sudo dnf install git curl wget -y >> ~/docker-script-install.log 2>&1
 
-            echo "    3. Installing Docker-CE (Community Edition)..."
+            if [[ "$ISACT" != "active" ]]; then
+                echo "    3. Installing Docker-CE (Community Edition)..."
 
-            sleep 2s
-            (curl -fsSL https://get.docker.com/ | sh) >> ~/docker-script-install.log 2>&1
+                sleep 2s
+                (curl -fsSL https://get.docker.com/ | sh) >> ~/docker-script-install.log 2>&1
 
-            echo "    4. Starting the Docker Service..."
+                echo "    4. Starting the Docker Service..."
 
-            sleep 2s
+                sleep 2s
 
 
-            sudo systemctl start docker >> ~/docker-script-install.log 2>&1
+                sudo systemctl start docker >> ~/docker-script-install.log 2>&1
 
-            echo "    5. Enabling the Docker Service..."
-            sleep 2s
+                echo "    5. Enabling the Docker Service..."
+                sleep 2s
 
-            sudo systemctl enable docker >> ~/docker-script-install.log 2>&1
+                sudo systemctl enable docker >> ~/docker-script-install.log 2>&1
 
-            echo "      - docker version is now:"
-            DOCKERV=$(docker -v)
-            echo "        "${DOCKERV}
-            sleep 3s
+                echo "      - docker version is now:"
+                DOCKERV=$(docker -v)
+                echo "        "${DOCKERV}
+                sleep 3s
+            fi
         fi
     fi
 
@@ -168,10 +172,11 @@ startInstall()
             sleep 2s
         fi
 
-        echo "    2. Installing Prerequisit Packages..."
+        echo "    2. Installing Prerequisite Packages..."
         sudo pacman -Sy git curl wget >> ~/docker-script-install.log 2>&1
 
-        echo "    3. Installing Docker-CE (Community Edition)..."
+        if [[ "$ISACT" != "active" ]]; then
+            echo "    3. Installing Docker-CE (Community Edition)..."
             sleep 2s
 
             curl -fsSL https://get.docker.com | sh >> ~/docker-script-install.log 2>&1
@@ -180,19 +185,22 @@ startInstall()
             DOCKERV=$(docker -v)
             echo "        "${DOCKERV}
             sleep 3s
+        fi
     fi
 
-    if [[ "$DOCK" == [yY] ]]; then
-        # add current user to docker group so sudo isn't needed
-        echo ""
-        echo "  - Attempting to add the currently logged in user to the docker group..."
+    if [[ "$ISACT" != "active" ]]; then
+        if [[ "$DOCK" == [yY] ]]; then
+            # add current user to docker group so sudo isn't needed
+            echo ""
+            echo "  - Attempting to add the currently logged in user to the docker group..."
 
-        sleep 2s
-        sudo usermod -aG docker "${USER}" >> ~/docker-script-install.log 2>&1
-        echo "  - You'll need to log out and back in to finalize the addition of your user to the docker group."
-        echo ""
-        echo ""
-        sleep 3s
+            sleep 2s
+            sudo usermod -aG docker "${USER}" >> ~/docker-script-install.log 2>&1
+            echo "  - You'll need to log out and back in to finalize the addition of your user to the docker group."
+            echo ""
+            echo ""
+            sleep 3s
+        fi
     fi
 
     if [[ "$DCOMP" = [yY] ]]; then
@@ -214,6 +222,8 @@ startInstall()
         if [[ "$OS" == "2" || "$OS" == "3" || "$OS" == "4" ]]; then
             VERSION=$(curl --silent https://api.github.com/repos/docker/compose/releases/latest | grep -Po '"tag_name": "\K.*\d')
 		    sudo curl -SL https://github.com/docker/compose/releases/download/$VERSION/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+            #sudo curl -L "https://github.com/docker/compose/releases/download/$(curl https://github.com/docker/compose/releases | grep -m1 '<a href="/docker/compose/releases/download/' | grep -o 'v[0-9:].[0-9].[0-9]')/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+
             sleep 2
             sudo chmod +x /usr/local/bin/docker-compose
         fi
@@ -275,6 +285,13 @@ startInstall()
         done
     fi
 
+    echo "################################################"
+    echo "######      Create a Docker Network    #########"
+    echo "################################################"
+
+    sudo docker network create my-main-net
+    sleep 2s
+
     if [[ "$NPM" == [yY] ]]; then
         echo "##########################################"
         echo "###     Install NGinX Proxy Manager    ###"
@@ -294,13 +311,11 @@ startInstall()
 
         if [[ "$OS" == "1" ]]; then
           docker-compose up -d
-        fi
-
-        if [[ "$OS" != "1" ]]; then
+        else
           sudo docker-compose up -d
         fi
 
-        echo ""
+        echo "    3. You can find NGinX Proxy Manager files at ./docker/nginx-proxy-manager"
         echo ""
         echo "    Navigate to your server hostname / IP address on port 81 to setup"
         echo "    NGinX Proxy Manager admin account."
@@ -321,11 +336,21 @@ startInstall()
         echo ""
         echo "    1. Preparing to Install Portainer-CE"
         echo ""
+        echo "    2. Creating the folder structure for Portainer."
+        echo "    3. You can find Portainer-CE files in ./docker/portainer"
+
+        #sudo docker volume create portainer_data >> ~/docker-script-install.log 2>&1
+        mkdir -p docker/portainer/portainer_data
+        cd docker/portainer
+        curl https://gitlab.com/bmcgonag/docker_installs/-/raw/main/docker_compose_portainer_ce.yml -o docker-compose.yml >> ~/docker-script-install.log 2>&1
         echo ""
 
-        sudo docker volume create portainer_data
-        sudo docker run -d -p 8000:8000 -p 9000:9000 --name=portainer --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce
-        echo ""
+        if [[ "$OS" == "1" ]]; then
+          docker-compose up -d
+        else
+          sudo docker-compose up -d
+        fi
+
         echo ""
         echo "    Navigate to your server hostname / IP address on port 9000 and create your admin account for Portainer-CE"
 
@@ -333,6 +358,7 @@ startInstall()
         echo ""
         echo ""
         sleep 3s
+        cd
     fi
 
     if [[ "$PORT" == "2" ]]; then
@@ -341,10 +367,21 @@ startInstall()
         echo "###########################################"
         echo ""
         echo "    1. Preparing to install Portainer Agent"
+        echo "    2. Creating the folder structure for Portainer."
+        echo "    3. You can find Portainer-Agent files in ./docker/portainer"
 
         sudo docker volume create portainer_data
-        sudo docker run -d -p 9001:9001 --name portainer_agent --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v /var/lib/docker/volumes:/var/lib/docker/volumes portainer/agent
+        mkdir -p docker/portainer
+        cd docker/portainer
+        curl https://gitlab.com/bmcgonag/docker_installs/-/raw/main/docker_compose_portainer_ce_agent.yml -o docker-compose.yml >> ~/docker-script-install.log 2>&1
         echo ""
+        
+        if [[ "$OS" == "1" ]]; then
+          docker-compose up -d
+        else
+          sudo docker-compose up -d
+        fi
+
         echo ""
         echo "    From Portainer or Portainer-CE add this Agent instance via the 'Endpoints' option in the left menu."
         echo "       ####     Use the IP address of this server and port 9001"
@@ -352,6 +389,7 @@ startInstall()
         echo ""
         echo ""
         sleep 3s
+        cd
     fi
 
     if [[ "$NAVID" == [yY] ]]; then
@@ -372,13 +410,11 @@ startInstall()
 
         if [[ "$OS" == "1" ]]; then
           docker-compose up -d
-        fi
-
-        if [[ "$OS" != "1" ]]; then
+        else
           sudo docker-compose up -d
         fi
 
-        echo ""
+        echo "    3. You can find your Navidrome files in ./docker/navidrome"
         echo ""
         echo "    Navigate to your server hostname / IP address on port 4533 to setup"
         echo "    your new Navidrome admin account."
@@ -386,6 +422,11 @@ startInstall()
         sleep 3s
         cd
     fi
+
+    echo "All docker applications have been added to the docker network my-main-app"
+    echo ""
+    echo "If you add more docker applications to this server, make sure to add them to the my-main-app network."
+    echo "You can then use them by container name in NGinX Proxy Manager if so desired."
 
     exit 1
 }

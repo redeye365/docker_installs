@@ -66,11 +66,11 @@ startInstall()
     echo ""
     sleep 3s
 
-    #######################################################
-    ###           Install for Debian / Ubuntu           ###
-    #######################################################
+#######################################################
+###           Install for Debian / Ubuntu           ###
+#######################################################
 
-    if [[ "$OS" != "1" ]]; then
+    if [[ "$OS" == [234] ]]; then
         echo "    1. Installing System Updates... this may take a while...be patient. If it is being done on a Digial Ocean VPS, you should run updates before running this script."
         (sudo apt update && sudo apt upgrade -y) > ~/docker-script-install.log 2>&1 &
         ## Show a spinner for activity progress
@@ -110,13 +110,13 @@ startInstall()
     fi
         
     
-    #######################################################
-    ###              Install for CentOS 7 or 8          ###
-    #######################################################
+#######################################################
+###              Install for CentOS 7 or 8          ###
+#######################################################
     if [[ "$OS" == "1" ]]; then
         if [[ "$DOCK" == [yY] ]]; then
             echo "    1. Updating System Packages..."
-            sudo yum check-update >> ~/docker-script-install.log 2>&1
+            sudo yum check-update > ~/docker-script-install.log 2>&1
 
             echo "    2. Installing Prerequisite Packages..."
             sudo dnf install git curl wget -y >> ~/docker-script-install.log 2>&1
@@ -147,15 +147,15 @@ startInstall()
         fi
     fi
 
-    #######################################################
-    ###               Install for Arch Linux            ###
-    #######################################################
+#######################################################
+###               Install for Arch Linux            ###
+#######################################################
 
     if [[ "$OS" == "5" ]]; then
         read -rp "Do you want to install system updates prior to installing Docker-CE? (y/n): " UPDARCH
-        if [[ "UPDARCH" == [yY] ]]; then
+        if [[ "$UPDARCH" == [yY] ]]; then
             echo "    1. Installing System Updates... this may take a while...be patient."
-            (sudo pacman -Syu) > ~/docker-script-install.log 2>&1 &
+            (sudo pacman -Syu --noconfirm) > ~/docker-script-install.log 2>&1 &
             ## Show a spinner for activity progress
             pid=$! # Process Id of the previous running command
             spin='-\|/'
@@ -173,13 +173,72 @@ startInstall()
         fi
 
         echo "    2. Installing Prerequisite Packages..."
-        sudo pacman -Sy git curl wget >> ~/docker-script-install.log 2>&1
+        sudo pacman -Sy git curl wget --noconfirm >> ~/docker-script-install.log 2>&1
 
         if [[ "$ISACT" != "active" ]]; then
             echo "    3. Installing Docker-CE (Community Edition)..."
             sleep 2s
 
-            curl -fsSL https://get.docker.com | sh >> ~/docker-script-install.log 2>&1
+            sudo pacman -Sy docker --noconfirm >> ~/docker-script-install.log 2>&1
+
+            echo "    - docker-ce version is now:"
+            DOCKERV=$(docker -v)
+            echo "        "${DOCKERV}
+            sleep 3s
+        fi
+    fi
+
+#######################################################
+###               Install for Open Suse             ###
+#######################################################
+
+    if [[ "$OS" == "6" ]]; then
+        # install system updates first
+        read -rp "Do you want to install system updates prior to installing Docker-CE? (y/n): " UPDSUSE
+        if [[ "$UPDSUSE" == [yY] ]]; then
+            echo "    1. Installing System Updates... this may take a while...be patient."
+
+            (sudo zypper -n update) > docker-script-install.log 2>&1 &
+            ## Show a spinner for activity progress
+            pid=$! # Process Id of the previous running command
+            spin='-\|/'
+            i=0
+            while kill -0 $pid 2>/dev/null
+            do
+                i=$(( (i+1) %4 ))
+                printf "\r${spin:$i:1}"
+                sleep .1
+            done
+            printf "\r"
+        else
+            echo "    1. Skipping system update..."
+            sleep 2s
+        fi
+
+        echo "    2. Installing Prerequisite Packages..."
+        sudo zypper -n install git curl wget >> ~/docker-script-install.log 2>&1
+
+        if [[ "$ISACT" != "active" ]]; then
+            echo "    3. Installing Docker-CE (Community Edition)..."
+            sleep 2s
+
+            sudo zypper -n install docker-compose >> ~/docker-script-install.log 2>&1
+            sudo zypper -n remove docker-compose
+            echo "Giving the Docker service time to start..."
+        
+            sudo systemctl start docker >> ~/docker-script-install.log 2>&1
+            sleep 5s &
+            pid=$! # Process Id of the previous running command
+            spin='-\|/'
+            i=0
+            while kill -0 $pid 2>/dev/null
+            do
+                i=$(( (i+1) %4 ))
+                printf "\r${spin:$i:1}"
+                sleep .1
+            done
+            printf "\r"
+            sudo systemctl enable docker >> ~/docker-script-install.log 2>&1
 
             echo "    - docker-ce version is now:"
             DOCKERV=$(docker -v)
@@ -232,13 +291,10 @@ startInstall()
         ######################################
 
         if [[ "$OS" == "1" ]]; then
-             sudo curl -L "https://github.com/docker/compose/releases/download/v2.12.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose >> ~/docker-script-install.log 2>&1
-            # Not sure if docker-compose is needed in /usr/local/bin also, so copied instead of move, it somehow command calls for docker-compose under /user/bin
-            sudo cp /usr/local/bin/docker-compose /usr/bin/docker-compose >> ~/docker-script-install.log 2>&1
+            VERSION=$(curl --silent https://api.github.com/repos/docker/compose/releases/latest | grep -Po '"tag_name": "\K.*\d')
+		    sudo curl -SL https://github.com/docker/compose/releases/download/$VERSION/docker-compose-linux-x86_64 -o /usr/bin/docker-compose >> ~/docker-script-install.log 2>&1
 
             sudo chmod +x /usr/bin/docker-compose >> ~/docker-script-install.log 2>&1
-            sudo chmod +x /usr/local/bin/docker-compose >> ~/docker-script-install.log 2>&1
-
         fi
 
         ######################################
@@ -246,8 +302,18 @@ startInstall()
         ######################################
 
         if [[ "$OS" == "5" ]]; then
-            sudo pacman -Sy >> ~/docker-script-install.log 2>&1
-            sudo pacman -Sy docker-compose > ~/docker-script-install.log 2>&1
+            sudo pacman -Sy docker-compose --noconfirm > ~/docker-script-install.log 2>&1
+        fi
+
+        ######################################
+        ###        Install Open Suse       ###
+        ######################################
+
+        if [[ "$OS" == "6" ]]; then
+            VERSION=$(curl --silent https://api.github.com/repos/docker/compose/releases/latest | grep -Po '"tag_name": "\K.*\d')
+		    sudo curl -SL https://github.com/docker/compose/releases/download/$VERSION/docker-compose-linux-x86_64 -o /usr/bin/docker-compose >> ~/docker-script-install.log 2>&1
+
+            sudo chmod +x /usr/bin/docker-compose >> ~/docker-script-install.log 2>&1
         fi
 
         echo ""
@@ -440,13 +506,14 @@ echo "Let's figure out which OS / Distro you are running."
 echo ""
 echo ""
 echo "    From some basic information on your system, you appear to be running: "
-echo "        --  OpSys        " $(lsb_release -i)
-echo "        --  Desc:        " $(lsb_release -d)
-echo "        --  OSVer        " $(lsb_release -r)
-echo "        --  CdNme        " $(lsb_release -c)
+echo "        --  OS Name        " $(lsb_release -i)
+echo "        --  Description        " $(lsb_release -d)
+echo "        --  OS Version        " $(lsb_release -r)
+echo "        --  Code Name        " $(lsb_release -c)
 echo ""
 echo "------------------------------------------------"
 echo ""
+
 PS3="Please select the number for your OS / distro: "
 select _ in \
     "CentOS 7 / 8 / Fedora" \
@@ -454,6 +521,7 @@ select _ in \
     "Ubuntu 18.04" \
     "Ubuntu 20.04 / 21.04 / 22.04" \
     "Arch Linux" \
+    "Open Suse"\
     "End this Installer"
 do
   case $REPLY in
@@ -462,7 +530,8 @@ do
     3) installApps ;;
     4) installApps ;;
     5) installApps ;;
-    6) exit ;;
+    6) installApps ;;
+    7) exit ;;
     *) echo "Invalid selection, please try again..." ;;
   esac
 done

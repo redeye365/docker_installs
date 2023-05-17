@@ -13,5 +13,5 @@ services:
 
 networks:
   default:
-    name: my-main-net
+    name: main-net
     external: true 
